@@ -27,7 +27,7 @@ else
     Dir.glob(uploadDir+'/*').each do |file|
        if File.directory?(file)
           puts "zipping directory: #{file}"
-          `zip -rj "#{file}.zip" "#{file}"`
+          `zip -r "#{file}.zip" "#{file}"`
        end
     end
 
