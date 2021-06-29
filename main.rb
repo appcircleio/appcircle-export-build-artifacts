@@ -99,7 +99,7 @@ request["Content-Type"] = "application/json"
 
 bodyJson = { agentId: agentId, queueId: queueId, isSuccess: isSuccess, files: files }.to_json
 request.body = bodyJson
-Retriable.retriable do
+Retriable.retriable :timeout => 300 do
     puts "Upload completing..."
     response = http.request(request)
 end
