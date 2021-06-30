@@ -69,6 +69,7 @@ filesList.each do |f|
             fileSize = File.size("ac_chunk_#{(fileIndex + 1)}")
                	
             http = Net::HTTP.new(urlChunk.host, urlChunk.port)
+            http.read_timeout = 600
             http.use_ssl = true if urlChunk.instance_of? URI::HTTPS
             request = Net::HTTP::Post.new(urlChunk)
             request["Content-Type"] = "application/json"
@@ -93,13 +94,14 @@ filesList.each do |f|
 end
 
 http = Net::HTTP.new(urlComplete.host, urlComplete.port)
+http.read_timeout = 600
 http.use_ssl = true if urlComplete.instance_of? URI::HTTPS
 request = Net::HTTP::Post.new(urlComplete)
 request["Content-Type"] = "application/json"
 
 bodyJson = { agentId: agentId, queueId: queueId, isSuccess: isSuccess, files: files }.to_json
 request.body = bodyJson
-Retriable.retriable :timeout => 300 do
+Retriable.retriable do
     puts "Upload completing..."
     response = http.request(request)
 end
