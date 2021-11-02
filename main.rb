@@ -7,6 +7,7 @@ require 'retriable'
 $stdout.sync = true
 
 puts "starting to upload files..."
+
 puts ENV["AC_UPLOADCHUNK_URL"]
 puts ENV["AC_COMPLETEUPLOAD_URL"]
 puts "--------------------------------------"
@@ -44,7 +45,6 @@ queueId = ENV['AC_QUEUE_ID']==nil ? "00000000-0000-0000-0000-000000000000" : ENV
 logFile = ENV['AC_LOGFILE']
 if logFile != nil
     logFileSnapshot = logFile + '.snapshot'
-    FileUtils.cp logFile, logFileSnapshot
     filesList.push(logFileSnapshot)
 end
 
@@ -54,7 +54,13 @@ filesList.each do |f|
     if f != logFileSnapshot
         requestName = "artifact#{(fileIndex + 1)}"
         files.push({key: requestName, value: File.basename(f)})
-    else        
+    else
+        STDOUT.flush
+        sleep(10)
+
+        FileUtils.cp logFile, logFileSnapshot
+        File.open(logFileSnapshot, "a"){|f| f.write("@@[section:end] Step completed")}
+        
         requestName = "log"
         files.push({key: "log", value: "log.txt"})
     end
