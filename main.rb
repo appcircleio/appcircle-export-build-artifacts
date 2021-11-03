@@ -59,7 +59,7 @@ filesList.each do |f|
         sleep(10)
 
         FileUtils.cp logFile, logFileSnapshot
-        sectionEnd = "\r\n@@[section:end] Step completed " + Time.now.strftime("%m/%d/%Y %H:%M:%S")
+        sectionEnd = "\r\n@@[section:end] Step completed " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
         File.open(logFileSnapshot, "a"){|f| f.write(sectionEnd)}
         
         requestName = "log"
