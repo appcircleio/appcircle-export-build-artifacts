@@ -15,7 +15,7 @@ puts "--------------------------------------"
 uploadDir = ENV["AC_UPLOAD_DIR"];
 urlChunk = URI(ENV["AC_UPLOADCHUNK_URL"])
 urlComplete = URI(ENV["AC_COMPLETEUPLOAD_URL"])
-chunkSize = 10000000
+chunkSize = 100000000 #100MB
 
 puts "uploading files...";
 
@@ -49,7 +49,7 @@ if logFile != nil
 end
 
 filesList.each do |f|
-    puts "reading file: " + f
+    puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
     
     if f != logFileSnapshot
         requestName = "artifact#{(fileIndex + 1)}"
@@ -109,6 +109,6 @@ request["Content-Type"] = "application/json"
 bodyJson = { agentId: agentId, queueId: queueId, isSuccess: isSuccess, files: files }.to_json
 request.body = bodyJson
 Retriable.retriable do
-    puts "Upload completing..."
+    puts "Upload completing...  " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
     response = http.request(request)
 end
