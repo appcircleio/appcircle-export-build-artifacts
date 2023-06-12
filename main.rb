@@ -89,11 +89,19 @@ filesList.each do |f|
                     ['chunk', File.open("ac_chunk_#{(fileIndex + 1)}")]]
                     	
             request.set_form form_data, 'multipart/form-data'
+            start_time = Time.now
             Retriable.retriable do
                 puts "  uploading... #{(fileIndex + 1)} #{requestName} #{offset.to_s} #{fileSize.to_s} "
                 response = http.request(request)
+                unless response.is_a?(Net::HTTPSuccess)
+                    puts "Error code from server: #{response.code}"
+                    puts response.body
+                    raise "Upload failed."
+                end
             end
-                       	
+            end_time = Time.now
+            upload_speed = fileSize.to_f / (end_time - start_time)
+            puts "  Upload speed: #{upload_speed.round(2)} bytes/sec"                      
             offset += fileSize
             fileIndex += 1		
         end 
@@ -111,4 +119,9 @@ request.body = bodyJson
 Retriable.retriable do
     puts "Upload completing...  " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
     response = http.request(request)
+    unless response.is_a?(Net::HTTPSuccess)
+        puts "Error code from server: #{response.code}"
+        puts response.body
+        raise "Upload completion failed."
+    end
 end
