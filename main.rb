@@ -4,6 +4,24 @@ require "net/http"
 require 'fileutils'
 require 'retriable'
 
+def delete_files_and_directories(folder_path)
+    Dir.glob("#{folder_path}/*").each do |entry|
+      if File.directory?(entry)
+        delete_files_and_directories(entry)
+        Dir.rmdir(entry) if Dir.empty?(entry)
+      else
+        File.delete(entry)
+      end
+    end
+end
+
+def should_delete_artifacts?
+    should_delete = ENV['AC_DISABLE_UPLOAD_ON_FAIL'] == 'true'
+    is_success = ENV['AC_IS_SUCCESS']
+    success = %w[true True].include?(is_success)
+    should_delete && !success
+end
+    
 $stdout.sync = true
 
 puts "starting to upload files..."
@@ -16,6 +34,14 @@ uploadDir = ENV["AC_UPLOAD_DIR"];
 urlChunk = URI(ENV["AC_UPLOADCHUNK_URL"])
 urlComplete = URI(ENV["AC_COMPLETEUPLOAD_URL"])
 chunkSize = 100000000 #100MB
+
+if should_delete_artifacts?
+    if File.file?(uploadDir)
+        File.delete(entry)
+    else
+        delete_files_and_directories(uploadDir)
+    end
+end
 
 puts "uploading files...";
 
