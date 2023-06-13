@@ -100,8 +100,8 @@ filesList.each do |f|
                 end
             end
             end_time = Time.now
-            upload_speed = fileSize.to_f / (end_time - start_time)
-            puts "  Upload speed: #{upload_speed.round(2)} bytes/sec"                      
+            upload_speed = fileSize.to_f / (end_time - start_time) / 1024 / 1024
+            puts "  Upload speed: #{upload_speed.round(2)} MB/s"
             offset += fileSize
             fileIndex += 1		
         end 
