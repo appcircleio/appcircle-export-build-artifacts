@@ -10,7 +10,7 @@ inputs:
   description: ""
   helpText:
 - key: "AC_DISABLE_UPLOAD_ON_FAIL"
-  defaultValue: "$AC_DISABLE_UPLOAD_ON_FAIL"
+  defaultValue: "false"
   isRequired: false
   editorType: select
   options: "false,true"
