@@ -75,6 +75,13 @@ if logFile != nil
 end
 
 filesList.each do |f|
+
+    if !File.exist?(f)
+        puts "Skipping the file " + f + ". The file may not exist or its size is 0 byte" 
+        fileIndex += 1	
+        next
+    end
+    
     size = File.size(f)
     puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S") + " size:" + size.to_s + " bytes"
     if size == 0
