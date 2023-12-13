@@ -76,7 +76,7 @@ end
 
 filesList.each do |f|
     size = File.size(f)
-    puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S") + " size:" + size + " bytes"
+    puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S") + " size:" + size.to_s + " bytes"
     if size == 0
         puts "Skipping the file " + f + " since its size is 0 byte!"
         fileIndex += 1	
