@@ -75,8 +75,14 @@ if logFile != nil
 end
 
 filesList.each do |f|
-    puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
-    
+    size = File.size(f)
+    puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S") + " size:" + size + " bytes"
+    if size == 0
+        puts "Skipping the file " + f + " since its size is 0 byte!"
+        fileIndex += 1	
+        next
+    end
+
     if f != logFileSnapshot
         requestName = "artifact#{(fileIndex + 1)}"
         files.push({key: requestName, value: File.basename(f)})
