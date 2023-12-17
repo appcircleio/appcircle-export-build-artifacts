@@ -15,7 +15,7 @@ inputs:
   editorType: select
   options: "false,true"
   title: Delete artifacts for failed workflows
-  description: "Delete build artifacts if any of your workflows failed. Only build logs will be uploaded."
+  description: "Delete build artifacts if any of your workflow steps failed. Only build logs will be uploaded."
   helpText:
 outputs:
 processFilename: ruby
