@@ -61,7 +61,6 @@ else
     filesList = Dir.glob(uploadDir+'/*').select { |e| File.file? e }
 end
 
-chunkIndex = 0
 fileIndex = 0
 files = []
 
@@ -75,8 +74,21 @@ if logFile != nil
 end
 
 filesList.each do |f|
-    puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
+
+    if !File.exist?(f)
+        puts "Skipping the file " + f + ". The file may not exist or its size is 0 byte" 
+        fileIndex += 1	
+        next
+    end
     
+    size = File.size(f)
+    puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S") + " size:" + size.to_s + " bytes"
+    if size == 0
+        puts "Skipping the file " + f + " since its size is 0 byte!"
+        fileIndex += 1	
+        next
+    end
+
     if f != logFileSnapshot
         requestName = "artifact#{(fileIndex + 1)}"
         files.push({key: requestName, value: File.basename(f)})
