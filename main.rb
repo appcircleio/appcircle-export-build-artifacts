@@ -61,7 +61,6 @@ else
     filesList = Dir.glob(uploadDir+'/*').select { |e| File.file? e }
 end
 
-chunkIndex = 0
 fileIndex = 0
 files = []
 
