@@ -2,19 +2,22 @@ platform: Common
 buildPlatform:
 displayName: "Export Build Artifacts"
 description: "Exports the specified build artifacts from the build agent to the Appcircle dashboard. The exported files will be available for download from the artifacts section of the completed build."
+docsUrl: https://docs.appcircle.io/workflows/common-workflow-steps#export-build-artifacts
+requiredComponents:
+followingComponents:
 inputs:
 - key: "AC_UPLOAD_DIR"
   defaultValue: "$AC_OUTPUT_DIR"
   isRequired: true
   title: Artifact Directory
-  description: ""
+  description: "Specifies the directory where artifacts will be extracted to."
   helpText:
 - key: "AC_DISABLE_UPLOAD_ON_FAIL"
   defaultValue: "false"
   isRequired: false
   editorType: select
   options: "false,true"
-  title: Delete artifacts for failed workflows
+  title: Delete Artifacts for Failed Workflows
   description: "Delete build artifacts if any of your workflow steps failed. Only build logs will be uploaded."
   helpText:
 outputs:
