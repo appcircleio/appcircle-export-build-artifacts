@@ -22,15 +22,13 @@ There is no required step that needs to be run beforehand for this step to work 
 
 ### Preceding Steps
 
-Below are the steps that should be run beforehand if they are used in a workflow with this step.
-
-- [Git Clone](#todo)
-- [Android Test Report](#todo)
-- [iOS Test Report](#todo)
-- [Android Build](#todo)
-- [Android Build UI Test](#todo)
-- [iOS Build For Testing](#todo)
-- [iOS Build Simulator](#todo)
+Below are the steps that should be run beforehand if they are used in the workflow with this step.
+- [Git Clone](https://github.com/appcircleio/appcircle-git-clone-component.git)
+- [Test Report](https://github.com/appcircleio/appcircle-test-report-component.git)
+- [Android Build](https://github.com/appcircleio/appcircle-android-build-component.git)
+- [Android Build UI Test](https://github.com/appcircleio/appcircle-android-build-ui-test-component.git)
+- [iOS Build For Testing](https://github.com/appcircleio/appcircle-ios-build-for-testing.git)
+- [iOS Build Simulator](https://github.com/appcircleio/appcircle-ios-build-simulator.git)
 
 ### Following Steps
 
