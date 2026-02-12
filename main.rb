@@ -3,6 +3,19 @@ require "json"
 require "net/http"
 require 'fileutils'
 require 'retriable'
+require 'digest'
+
+def compute_file_sha256(file_path)
+  sha256 = Digest::SHA256.new
+  File.open(file_path, 'rb') do |file|
+    buffer = ''
+    # Read in 4KB chunks (memory efficient)
+    while file.read(4096, buffer)
+      sha256.update(buffer)
+    end
+  end
+  sha256.hexdigest.upcase  # Uppercase format to match C# implementation
+end
 
 def delete_files_and_directories(folder_path)
     Dir.glob("#{folder_path}/*").each do |entry|
@@ -63,6 +76,8 @@ end
 
 fileIndex = 0
 files = []
+file_hashes = {}  # Hash storage for validation
+file_info_table = []  # Table data for logging
 
 agentId = ENV['AC_AGENT_ID']==nil ? "00000000-0000-0000-0000-000000000000" : ENV['AC_AGENT_ID']
 isSuccess = ENV['AC_IS_SUCCESS']==nil ? "true" : ENV['AC_IS_SUCCESS']
@@ -85,13 +100,31 @@ filesList.each do |f|
     puts "reading file: " + f + " " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S") + " size:" + size.to_s + " bytes"
     if size == 0
         puts "Skipping the file " + f + " since its size is 0 byte!"
-        fileIndex += 1	
+        fileIndex += 1
         next
     end
 
+    # Calculate SHA256 hash for file integrity validation
+    puts "Calculating SHA256 hash for: #{File.basename(f)}"
+    start_time = Time.now
+    file_hash = compute_file_sha256(f)
+    elapsed = (Time.now - start_time).round(2)
+    puts "  Hash calculated in #{elapsed}s: #{file_hash}"
+
+    filename = File.basename(f)
+    size_mb = (size / 1048576.0).round(2)
+
+    # Store hash and file info for table logging
+    file_info_table.push({
+        name: filename,
+        size_mb: size_mb,
+        hash: file_hash
+    })
+
     if f != logFileSnapshot
         requestName = "artifact#{(fileIndex + 1)}"
-        files.push({key: requestName, value: File.basename(f)})
+        files.push({key: requestName, value: filename})
+        file_hashes[filename] = file_hash  # Store hash by filename
     else
         STDOUT.flush
         sleep(10)
@@ -99,9 +132,10 @@ filesList.each do |f|
         FileUtils.cp logFile, logFileSnapshot
         sectionEnd = "\r\n@@[section:end] Step completed " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
         File.open(logFileSnapshot, "a"){|f| f.write(sectionEnd)}
-        
+
         requestName = "log"
         files.push({key: "log", value: "log.txt"})
+        file_hashes["log.txt"] = file_hash  # Store log hash
     end
 
     offset = 0	
@@ -142,8 +176,30 @@ filesList.each do |f|
             puts "  Upload speed: #{upload_speed.round(2)} MB/s"
             offset += fileSize
             fileIndex += 1		
-        end 
+        end
     end
+end
+
+# Display artifact hash summary table
+if !file_info_table.empty?
+    puts ""
+    puts "=" * 80
+    puts "ARTIFACT HASH SUMMARY (SHA256)"
+    puts "=" * 80
+
+    # Header
+    puts sprintf("%-40s %12s  %s", "File Name", "Size (MB)", "SHA256 Hash")
+    puts "-" * 80
+
+    # Each artifact row
+    file_info_table.each do |info|
+        display_name = info[:name].length > 40 ? info[:name][0..36] + "..." : info[:name]
+        puts sprintf("%-40s %12.2f  %s", display_name, info[:size_mb], info[:hash])
+    end
+
+    puts "=" * 80
+    puts "Total artifacts: #{file_info_table.length}"
+    puts ""
 end
 
 http = Net::HTTP.new(urlComplete.host, urlComplete.port)
@@ -152,7 +208,16 @@ http.use_ssl = true if urlComplete.instance_of? URI::HTTPS
 request = Net::HTTP::Post.new(urlComplete)
 request["Content-Type"] = "application/json"
 
-bodyJson = { agentId: agentId, queueId: queueId, isSuccess: isSuccess, files: files }.to_json
+bodyJson = {
+    agentId: agentId,
+    queueId: queueId,
+    isSuccess: isSuccess,
+    files: files,
+    fileHashes: file_hashes  # Include file hashes for validation
+}.to_json
+
+puts "Sending complete upload request with #{file_hashes.length} file hashes"
+
 request.body = bodyJson
 Retriable.retriable do
     puts "Upload completing...  " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
