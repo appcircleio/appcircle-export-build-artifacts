@@ -17,6 +17,37 @@ def compute_file_sha256(file_path)
   sha256.hexdigest.upcase  # Uppercase format to match C# implementation
 end
 
+CHUNK_UPLOAD_ATTEMPTS = 3
+
+# Uploads a single chunk. The HTTP connection, the request and the chunk file handle are
+# rebuilt on EVERY attempt: Net::HTTP serializes the multipart body from the file handle
+# at send time, so a request object that was already sent holds a handle at EOF.
+# Re-sending it uploads an empty chunk body, the server overwrites the stored chunk with
+# 0 bytes, and the merged artifact is truncated and fails SHA256 validation.
+def upload_chunk(url:, form_fields:, chunk_path:, label:)
+  attempt = 0
+  Retriable.retriable(tries: CHUNK_UPLOAD_ATTEMPTS) do
+    attempt += 1
+    puts "  uploading... #{label}#{attempt > 1 ? " (attempt #{attempt}/#{CHUNK_UPLOAD_ATTEMPTS})" : ''}"
+
+    http = Net::HTTP.new(url.host, url.port)
+    http.read_timeout = 600
+    http.use_ssl = true if url.instance_of? URI::HTTPS
+
+    File.open(chunk_path, 'rb') do |chunk_file|
+      request = Net::HTTP::Post.new(url)
+      request.set_form form_fields + [['chunk', chunk_file]], 'multipart/form-data'
+
+      response = http.request(request)
+      unless response.is_a?(Net::HTTPSuccess)
+        puts "Error code from server: #{response.code}"
+        puts response.body
+        raise "Upload failed."
+      end
+    end
+  end
+end
+
 def delete_files_and_directories(folder_path)
     Dir.glob("#{folder_path}/*").each do |entry|
       if File.directory?(entry)
@@ -50,7 +81,7 @@ chunkSize = 100000000 #100MB
 
 if should_delete_artifacts?
     if File.file?(uploadDir)
-        File.delete(entry)
+        File.delete(uploadDir)
     else
         delete_files_and_directories(uploadDir)
     end
@@ -90,6 +121,20 @@ end
 
 filesList.each do |f|
 
+    isLogSnapshot = logFileSnapshot != nil && f == logFileSnapshot
+
+    # The log snapshot is produced here, so it must exist before the size / hash checks
+    # below run. Appending the section-end marker also changes its content, so hashing it
+    # any earlier would send the server a SHA256 of bytes that are never uploaded.
+    if isLogSnapshot && File.exist?(logFile)
+        STDOUT.flush
+        sleep(10)
+
+        FileUtils.cp logFile, logFileSnapshot
+        sectionEnd = "\r\n@@[section:end] Step completed " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
+        File.open(logFileSnapshot, "a"){|fo| fo.write(sectionEnd)}
+    end
+
     if !File.exist?(f)
         puts "Skipping the file " + f + ". The file may not exist or its size is 0 byte" 
         fileIndex += 1	
@@ -121,61 +166,54 @@ filesList.each do |f|
         hash: file_hash
     })
 
-    if f != logFileSnapshot
+    if !isLogSnapshot
         requestName = "artifact#{(fileIndex + 1)}"
         files.push({key: requestName, value: filename})
         file_hashes[filename] = file_hash  # Store hash by filename
     else
-        STDOUT.flush
-        sleep(10)
-
-        FileUtils.cp logFile, logFileSnapshot
-        sectionEnd = "\r\n@@[section:end] Step completed " + Time.now.utc.strftime("%m/%d/%Y %H:%M:%S")
-        File.open(logFileSnapshot, "a"){|f| f.write(sectionEnd)}
-
         requestName = "log"
         files.push({key: "log", value: "log.txt"})
         file_hashes["log.txt"] = file_hash  # Store log hash
     end
 
-    offset = 0	
-    File.open(f, 'rb') do |file|	  
+    offset = 0
+    File.open(f, 'rb') do |file|
         while chunk = file.read(chunkSize)
-            File.open("ac_chunk_#{(fileIndex + 1)}", 'wb') do |fo|
-                fo.write(chunk)
-            end
-               	
-            fileSize = File.size("ac_chunk_#{(fileIndex + 1)}")
-               	
-            http = Net::HTTP.new(urlChunk.host, urlChunk.port)
-            http.read_timeout = 600
-            http.use_ssl = true if urlChunk.instance_of? URI::HTTPS
-            request = Net::HTTP::Post.new(urlChunk)
-            request["Content-Type"] = "application/json"
-            form_data = [['agentId', agentId],
-                    ['queueId', queueId],
-                    ['fileSize', fileSize.to_s],
-                    ['name', requestName],
-                    ['filename', File.basename(f)],
-                    ['offset', offset.to_s],
-                    ['chunk', File.open("ac_chunk_#{(fileIndex + 1)}")]]
-                    	
-            request.set_form form_data, 'multipart/form-data'
-            start_time = Time.now
-            Retriable.retriable do
-                puts "  uploading... #{(fileIndex + 1)} #{requestName} #{offset.to_s} #{fileSize.to_s} "
-                response = http.request(request)
-                unless response.is_a?(Net::HTTPSuccess)
-                    puts "Error code from server: #{response.code}"
-                    puts response.body
-                    raise "Upload failed."
+            chunkPath = "ac_chunk_#{(fileIndex + 1)}"
+            begin
+                File.open(chunkPath, 'wb') do |fo|
+                    fo.write(chunk)
                 end
+
+                fileSize = File.size(chunkPath)
+
+                # The bytes about to be uploaded must match the bytes read from the source
+                # file. A short temp file (no disk space, partial write) would otherwise be
+                # uploaded as a valid chunk and corrupt the merged artifact silently.
+                if fileSize != chunk.bytesize
+                    raise "Chunk write failed for #{File.basename(f)} at offset #{offset}: expected #{chunk.bytesize} bytes but the temp file has #{fileSize} bytes."
+                end
+
+                form_fields = [['agentId', agentId],
+                        ['queueId', queueId],
+                        ['fileSize', fileSize.to_s],
+                        ['name', requestName],
+                        ['filename', File.basename(f)],
+                        ['offset', offset.to_s]]
+
+                start_time = Time.now
+                upload_chunk(url: urlChunk,
+                        form_fields: form_fields,
+                        chunk_path: chunkPath,
+                        label: "#{(fileIndex + 1)} #{requestName} #{offset.to_s} #{fileSize.to_s} ")
+                end_time = Time.now
+                upload_speed = fileSize.to_f / (end_time - start_time) / 1024 / 1024
+                puts "  Upload speed: #{upload_speed.round(2)} MB/s"
+                offset += fileSize
+            ensure
+                File.delete(chunkPath) if File.exist?(chunkPath)
             end
-            end_time = Time.now
-            upload_speed = fileSize.to_f / (end_time - start_time) / 1024 / 1024
-            puts "  Upload speed: #{upload_speed.round(2)} MB/s"
-            offset += fileSize
-            fileIndex += 1		
+            fileIndex += 1
         end
     end
 end
