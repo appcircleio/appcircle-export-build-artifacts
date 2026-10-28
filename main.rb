@@ -140,6 +140,7 @@ file_info_table = []  # Table data for logging
 agentId = ENV['AC_AGENT_ID']==nil ? "00000000-0000-0000-0000-000000000000" : ENV['AC_AGENT_ID']
 isSuccess = ENV['AC_IS_SUCCESS']==nil ? "true" : ENV['AC_IS_SUCCESS']
 queueId = ENV['AC_QUEUE_ID']==nil ? "00000000-0000-0000-0000-000000000000" : ENV['AC_QUEUE_ID']
+agentSecret = ENV['AC_TOKEN_ID']  # BE-9647: per-build agent token; never print it
 logFile = ENV['AC_LOGFILE']
 if logFile != nil
     logFileSnapshot = logFile + '.snapshot'
@@ -267,6 +268,7 @@ filesList.each do |f|
                                 ['offset', offset.to_s],
                                 ['chunkHash', chunk_hash],
                                 ['chunk', chunk_io]]
+                        form_data.push(['agentSecret', agentSecret]) unless agentSecret.to_s.strip.empty?
                         request.set_form form_data, 'multipart/form-data'
                         response = http.request(request)
                         unless response.is_a?(Net::HTTPSuccess)
@@ -324,13 +326,15 @@ http.use_ssl = true if urlComplete.instance_of? URI::HTTPS
 request = Net::HTTP::Post.new(urlComplete)
 request["Content-Type"] = "application/json"
 
-bodyJson = {
+body = {
     agentId: agentId,
     queueId: queueId,
     isSuccess: isSuccess,
     files: files,
     fileHashes: file_hashes  # Include file hashes for validation
-}.to_json
+}
+body[:agentSecret] = agentSecret unless agentSecret.to_s.strip.empty?
+bodyJson = body.to_json
 
 puts ""
 puts "COMPLETING UPLOAD"
