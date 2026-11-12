@@ -65,6 +65,8 @@ def should_delete_artifacts?
     should_delete && !success
 end
     
+if __FILE__ == $PROGRAM_NAME
+
 $stdout.sync = true
 
 SEPARATOR_WIDTH = 120
@@ -368,3 +370,5 @@ puts ""
 puts "=" * SEPARATOR_WIDTH
 puts "EXPORT BUILD ARTIFACTS COMPLETED - #{utc_timestamp}"
 puts "=" * SEPARATOR_WIDTH
+
+end # if __FILE__ == $PROGRAM_NAME

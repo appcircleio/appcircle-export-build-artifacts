@@ -33,3 +33,13 @@ Below are the steps that should be run beforehand if they are used in the workfl
 ### Following Steps
 
 There are no subsequent steps advised to be run for this step to work as expected.
+
+## Running tests
+
+Requires the [RSpec](https://rspec.info) gem and the Ruby standard library (Coverage). No Gemfile or Bundler needed.
+
+```bash
+ruby test/test_main.rb
+```
+
+The subprocess tests run the real `main.rb` inside a sandbox: HTTP requests are answered locally, `zip` and `sleep` are recorded instead of executed, and file operations outside a per-test temp directory are refused. A coverage report is printed at the end of each run.
